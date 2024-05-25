@@ -1,0 +1,90 @@
+# MyDispatcher
+## Overview
+This Java class is the concrete implementation of the Dispatcher class. The purpose of this class is to add incoming tasks to some threads, in our case named 'hosts', based on the specificed scheduling algorithm.\
+The used scheduling algorithms are: Round Robin, Shortest Queue, Size Interval Task Assignment, Least Work Left.
+
+## Class structure
+### Fields
+* `lastAllocatedRoundRobinHostIndex`: its used to store the last host allocated using the Round Robin algorithm, its initialized with the value `-1` so that the first allocated host will always be `0`
+
+### Methods
+`addTask(Task task)`
+
+This method is responsible for assigning the incoming task to a host. The task is assigned based on the selected scheduling algorithm.
+
+It uses a switch statement to determine the scheduling algorithm and assigns the task accordingly.
+* For `ROUND_ROBIN`: the algorithm cycles through hosts in a round-robin fashion.
+* For `SHORTEST_QUEUE`, the algorithm assigns the task to the host with the shortest task queue.
+* For `SIZE_INTERVAL_TASK_ASSIGNMENT`, the algorithm assigns the task to a host based on its type (SHORT, MEDIUM, LONG). So in this case we will always have only 3 hosts.
+* For `LEAST_WORK_LEFT`, the algorithm assigns the task to the host with the least amount of work left.
+
+`findHostByShortestQueue()`
+
+This method finds and returns the host with the shortest task queue. It iterates through all hosts, comparing their queue sizes, and returns the one with the shortest queue. In case of a tie, it selects the host with the lowest index.
+
+`findHostByTaskType(Task task`)
+
+This private method finds and returns the host based on the task type. It uses a switch statement to determine to which host the task should be assigned based on its type (SHORT, MEDIUM, LONG).
+
+`findHostByLeastWorkLeft()`
+
+This private method finds and returns the host with the least amount of work left. It iterates through all hosts, comparing their remaining work, and returns the one with the least work left. In case of a tie, it selects the host with the lowest index.
+
+# MyHost
+## Overview
+The MyHost class is the concrete implementation of the Host class, which is extended from the Thread class. It represents a thread capable of running tasks concurrently. This class manages a task queue, preempted tasks queue, and provides methods to add tasks, calculate remaining work and shut down the host.
+
+## Class structure
+### Fields
+
+* `List<Task> taskQueue`: A list representing the queue of tasks waiting to be executed.
+* `List<RunningTask> preemptedTasks`: A list to store tasks that have been preempted, it uses a custom `RunningTask` class which will be described later.
+* `RunningTask currentTask`: This stores the task that currently runs on the host, it also uses the custom `RunningTask` class.
+* `boolean shutdown`: A flag indicating whether the host should be shut down.
+
+### Methods
+
+`run()`
+
+This method overrides the run method from the Thread class. It continuously runs a loop to handle tasks, until the host is shut down.\
+At first, it checks if there is any work to do on this thread, if there is not, then it is busy waiting the loop for 50 miliseconds (a random value that does put too much pressure on the thread and also does not affect the task execution).\
+If the host has any task to execute, then checks if any task is currently running, if not, it takes the first task from the queue.\
+Then we have a continuously running loop to execute the current task. Because our tasks duration is based on second, we simulate the execution of the task by sleeping the thread for 1 second each time and decreasing the left time for the curent task by 1, until the task is finished. After this simulation, it checks if the current task should be preempted and preempts it if so. If the task was not preempted and it has reached the end of its execution, the next task is fetched from the queue, or null if there is no other task waiting.
+
+`addTask(Task task)`
+
+This method adds a task to the host's task queue. It synchronizes access to the queue, sorts it by task priority in descending order, and places the new task in the appropriate position.
+
+`getQueueSize()`
+
+This method returns the total number of tasks in the queue, including preempted tasks and the currently running task.
+
+`getWorkLeft()`
+
+This method calculates and returns the total remaining work on the host. It considers the durations of tasks in the queue, preempted tasks, and the remaining time of the currently running task.
+
+`shutdown()`
+
+This method sets the shutdown flag to true, indicating that the host should shut down, that breaks the loop from the `run` method.
+
+`getNextTaskOrNull()`
+
+A method to retrieve the next task from the queue or preempted tasks. It ensures synchronization and handles the case where there is no other task in the queue.
+
+`calculateRunningTaskTotalDuration(List<RunningTask> runningTasks)`
+
+A method that calculates the total remaining time of a list of running tasks.
+
+`shouldPreemptCurrentTask()` and `preemptCurrentTask()`
+
+Methods that determine if the current task should be preempted based on priority and preempt the current task by replacing it with a higher priority task from the queue.
+
+# RunningTask
+## Overview
+
+A wrapper around the Task class, that also contains the execution time left for that task. It contains a Task object and a `timeLeft` property that represents the execution time left for that task in seconds.
+
+# RunningTaskComparator
+## Overview
+
+Used to sort a list of running tasks by task priority. It is mainly used for the preempted tasks list in the `MyHost` class.
